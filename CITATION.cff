@@ -4,6 +4,11 @@ message: "If you use this software, please cite the paper below."
 authors:
   - family-names: Colomés
     given-names: Oriol
+    orcid: 0000-0002-5552-9695
+  - family-names: Verdugo
+    given-names: Francesc
+  - family-names: Akkerman
+    given-names: Ido
 version: 0.1.0
 references:
   - type: article
