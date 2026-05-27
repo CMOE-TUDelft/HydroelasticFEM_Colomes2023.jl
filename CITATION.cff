@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: HydroelasticFEM_Colomes2023.jl
+title: HydroElasticFEM_Colomes2023.jl
 message: "If you use this software, please cite the paper below."
 authors:
   - family-names: Colomés

@@ -1,4 +1,4 @@
-module HydroelasticFEM_Colomes2023
+module HydroElasticFEM_Colomes2023
 
 export run_tests
 

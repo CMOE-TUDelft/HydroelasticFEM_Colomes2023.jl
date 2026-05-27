@@ -1,4 +1,4 @@
-name = "HydroelasticFEM_Colomes2023"
+name = "HydroElasticFEM_Colomes2023"
 uuid = "20d269e7-eb18-4f57-86b7-16c9d8975170"
 authors = ["Oriol Colomés"]
 version = "0.1.0"
