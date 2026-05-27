@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+title: HydroelasticFEM_Colomes2023.jl
+message: "If you use this software, please cite the paper below."
+authors:
+  - family-names: Colomés
+    given-names: Oriol
+version: 0.1.0
+references:
+  - type: article
+    title: "A monolithic finite element formulation for the hydroelastic analysis of very large floating structures"
+    doi: 10.1002/nme.7140
