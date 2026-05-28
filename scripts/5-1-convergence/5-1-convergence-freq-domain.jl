@@ -88,7 +88,7 @@ function build_frequency_problem(n::Int, order::Int; p=params)
     return problem, result
 end
 
-function compute_errors(problem, result; p=params)
+function compute_errors(problem, result; p=params, kwargs...)
     dom = S.get_integration_domains(problem)
     dΓ = dom[:dΓη]
     dΩ = dom[:dΩ]
