@@ -24,6 +24,7 @@ const params = (
     η0 = 0.01,
     Δt = 1.0e-6,
     tf = 1.0e-4,
+    order_phi = 2,
     ns = [4, 8, 16, 32, 64],
     orders = [2, 3, 4],
 )
@@ -88,7 +89,7 @@ function build_time_problem(n::Int, order::Int; p=params)
 
     potential = P.PotentialFlow(
         g=p.g,
-        fe=PH.FESpaceConfig(order=order, vector_type=Vector{Float64}),
+        fe=PH.FESpaceConfig(order=p.order_phi, vector_type=Vector{Float64}),
         space_domain_symbol=:Ω,
     )
 
@@ -185,11 +186,12 @@ function plot_convergence(df::DataFrame; p=params)
         scatterlines!(ax, p.L ./ sub.n, sub.L2_error_w, marker=:circle, label="p = $(order)")
     end
 
-    # Reference slope triangles for rates p+1 = 2, 3, 4.
+    # Reference slope triangles for rates p+1 matching each structural order.
     y_top = maximum(df.L2_error_w)
-    add_slope_triangle!(ax, sorted_h[2], 0.45 * y_top, 2)
-    add_slope_triangle!(ax, sorted_h[3], 0.25 * y_top, 3)
-    add_slope_triangle!(ax, sorted_h[4], 0.14 * y_top, 4)
+    y_scales = (0.45, 0.25, 0.14)
+    for (i, order) in enumerate(sort(p.orders))
+        add_slope_triangle!(ax, sorted_h[i + 1], y_scales[i] * y_top, order + 1)
+    end
 
     axislegend(ax, position=:rb)
 
@@ -229,6 +231,7 @@ function run_convergence_time(; ns=params.ns, orders=params.orders, force=false,
                 :k => params.k,
                 :Δt => params.Δt,
                 :tf => params.tf,
+                :order_phi => params.order_phi,
             )
 
             out, _ = produce_or_load("data/5-1-convergence", cfg; force=force, filename="time_n$(n)_p$(order)") do c
