@@ -56,13 +56,34 @@ function build_frequency_problem(n::Int, order::Int; p=params)
         space_domain_symbol=:Γs,
     )
 
+    k = 2 * pi / p.L
+    eta0 = 0.05
+    phi_in(x) = -im * (eta0 * p.ω / k) * (cosh(k * x[2]) / sinh(k * p.H)) * exp(im * k * x[1])
+    vin(x) = (eta0 * p.ω) * (cosh(k * x[2]) / sinh(k * p.H)) * exp(im * k * x[1])
+    f_in(x) = -vin(x) - im * k * phi_in(x)
+
+    potential = P.PotentialFlow(
+        g=G_ACCEL,
+        boundary_conditions=[
+            P.PrescribedInletPotentialBC(domain=:dΓin, forcing=f_in, quantity=:traction),
+        ],
+        fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
+        space_domain_symbol=:Ω,
+    )
+
+    free_surface = P.FreeSurface(
+        g=G_ACCEL,
+        βₕ=0.5,
+        fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
+        space_domain_symbol=:Γκ,
+    )
+
     cfg = PH.FreqDomainConfig(ω=p.ω)
     amp = forcing_amplitude(L=p.L, EI=p.EI, ρ_s=p.ρ_s, ω=p.ω)
-    k = 2 * pi / p.L
     rhs_w(x) = ComplexF64(amp * sin(k * x[1]))
-    rhs_fn(y) = Any[rhs_w]
+    rhs_fn(y) = Any[0.0 + 0.0im, 0.0 + 0.0im, rhs_w]
 
-    problem = S.build_problem(tank, P.PhysicsParameters[beam], cfg; rhs_fn=rhs_fn)
+    problem = S.build_problem(tank, P.PhysicsParameters[potential, free_surface, beam], cfg; rhs_fn=rhs_fn)
     result = S.simulate(problem)
     return problem, result
 end
@@ -70,15 +91,16 @@ end
 function compute_errors(problem, result; p=params)
     dom = S.get_integration_domains(problem)
     dΓ = dom[:dΓη]
+    dΩ = dom[:dΩ]
 
     w_h = result.solution[result.fmap[:w]]
-    phi_h = (im * p.ω / G_ACCEL) * w_h
+    phi_h = result.solution[result.fmap[:ϕ]]
 
     ew = w_h - w_exact
     ephi = phi_h - phi_exact
 
     l2_w = sqrt(abs(sum(∫(ew * conj(ew))dΓ)))
-    l2_phi = sqrt(abs(sum(∫(ephi * conj(ephi))dΓ)))
+    l2_phi = sqrt(abs(sum(∫(ephi * conj(ephi))dΩ)))
 
     return l2_w, l2_phi
 end
