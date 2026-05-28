@@ -42,6 +42,7 @@ function build_frequency_problem(n::Int, order::Int; p=params)
         H=p.H,
         nx=n,
         ny=2,
+        is_periodic=(true, false),
         structure_domains=[
             HE.StructureDomain(L=p.L, x₀=[0.0, p.H], domain_symbol=:Γη),
         ],
@@ -57,16 +58,8 @@ function build_frequency_problem(n::Int, order::Int; p=params)
     )
 
     k = 2 * pi / p.L
-    eta0 = 0.05
-    phi_in(x) = -im * (eta0 * p.ω / k) * (cosh(k * x[2]) / sinh(k * p.H)) * exp(im * k * x[1])
-    vin(x) = (eta0 * p.ω) * (cosh(k * x[2]) / sinh(k * p.H)) * exp(im * k * x[1])
-    f_in(x) = -vin(x) - im * k * phi_in(x)
-
     potential = P.PotentialFlow(
         g=G_ACCEL,
-        boundary_conditions=[
-            P.PrescribedInletPotentialBC(domain=:dΓin, forcing=f_in, quantity=:traction),
-        ],
         fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
         space_domain_symbol=:Ω,
     )
