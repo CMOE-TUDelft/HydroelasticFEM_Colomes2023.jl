@@ -43,7 +43,7 @@ function build_frequency_problem(n::Int, order::Int; p=params)
         nx=n,
         ny=2,
         structure_domains=[
-            HE.StructureDomain(L=p.L, x₀=[0.0, p.H], domain_symbol=:Γs),
+            HE.StructureDomain(L=p.L, x₀=[0.0, p.H], domain_symbol=:Γη),
         ],
     )
 
@@ -53,7 +53,7 @@ function build_frequency_problem(n::Int, order::Int; p=params)
         EIᵨ=p.EI,
         symbol=:w,
         fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
-        space_domain_symbol=:Γs,
+        space_domain_symbol=:Γη,
     )
 
     k = 2 * pi / p.L
@@ -71,19 +71,12 @@ function build_frequency_problem(n::Int, order::Int; p=params)
         space_domain_symbol=:Ω,
     )
 
-    free_surface = P.FreeSurface(
-        g=G_ACCEL,
-        βₕ=0.5,
-        fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
-        space_domain_symbol=:Γκ,
-    )
-
     cfg = PH.FreqDomainConfig(ω=p.ω)
     amp = forcing_amplitude(L=p.L, EI=p.EI, ρ_s=p.ρ_s, ω=p.ω)
     rhs_w(x) = ComplexF64(amp * sin(k * x[1]))
-    rhs_fn(y) = Any[0.0 + 0.0im, 0.0 + 0.0im, rhs_w]
+    rhs_fn(y) = Any[0.0 + 0.0im, rhs_w]
 
-    problem = S.build_problem(tank, P.PhysicsParameters[potential, free_surface, beam], cfg; rhs_fn=rhs_fn)
+    problem = S.build_problem(tank, P.PhysicsParameters[potential, beam], cfg; rhs_fn=rhs_fn)
     result = S.simulate(problem)
     return problem, result
 end
