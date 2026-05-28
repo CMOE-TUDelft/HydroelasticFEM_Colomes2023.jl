@@ -184,14 +184,14 @@ function _solve_freq_joint_beam(; nx=N_COARSE, p=P_COARSE)
 end
 
 @testset "5-1-convergence-freq-domain" begin
-    result, w, xs, Ls, H = _solve_freq_membrane(nx=N_COARSE, p=P_COARSE)
-    @test !isnothing(result)
-    @test length(get_free_dof_values(w)) == EXPECTED_W_DOFS_N4
+    include("../scripts/5-1-convergence/5-1-convergence-freq-domain.jl")
+    df = run_convergence_frequency(ns=[4], orders=[1], force=true, make_plots=false, save_csv=false, verbose=false)
 
-    # Coarse discrete L2 proxy on the deflection DOF vector.
-    l2_error = _l2_dof_norm(w)
-    @test isfinite(l2_error)
-    @test l2_error > 0
+    @test nrow(df) == 1
+    @test df.n[1] == 4
+    @test df.order[1] == 1
+    @test isfinite(df.L2_error_w[1])
+    @test df.L2_error_w[1] < 1.0
 end
 
 @testset "5-1-convergence-time-domain" begin
