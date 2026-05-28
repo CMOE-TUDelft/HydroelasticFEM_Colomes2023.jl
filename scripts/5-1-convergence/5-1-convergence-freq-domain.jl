@@ -33,7 +33,7 @@ phi_exact(x; L=params.L, ω=params.ω) = (im * ω / G_ACCEL) * w_exact(x; L=L)
 
 function forcing_amplitude(; L=params.L, EI=params.EI, ρ_s=params.ρ_s, ω=params.ω, g=G_ACCEL)
     k = 2 * pi / L
-    return g + EI * k^2 - ρ_s * ω^2
+    return g + EI * k^4 - ρ_s * ω^2
 end
 
 function build_frequency_problem(n::Int, order::Int; p=params)
@@ -47,10 +47,10 @@ function build_frequency_problem(n::Int, order::Int; p=params)
         ],
     )
 
-    membrane = P.Membrane(
+    beam = P.EulerBernoulliBeam(
         L=p.L,
         mᵨ=p.ρ_s,
-        Tᵨ=p.EI,
+        EIᵨ=p.EI,
         symbol=:w,
         fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
         space_domain_symbol=:Γs,
@@ -62,7 +62,7 @@ function build_frequency_problem(n::Int, order::Int; p=params)
     rhs_w(x) = ComplexF64(amp * sin(k * x[1]))
     rhs_fn(y) = Any[rhs_w]
 
-    problem = S.build_problem(tank, P.PhysicsParameters[membrane], cfg; rhs_fn=rhs_fn)
+    problem = S.build_problem(tank, P.PhysicsParameters[beam], cfg; rhs_fn=rhs_fn)
     result = S.simulate(problem)
     return problem, result
 end
