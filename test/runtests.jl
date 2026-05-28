@@ -183,13 +183,13 @@ function _solve_freq_joint_beam(; nx=N_COARSE, p=P_COARSE)
     return result, w, xs, Ls, H
 end
 
-@testset "5-1-convergence-freq-domain" begin
+@testset "5-1-convergence-time-domain-script" begin
     include("../scripts/5-1-convergence/5-1-convergence-freq-domain.jl")
-    df = run_convergence_frequency(ns=[4], orders=[1], force=true, make_plots=false, save_csv=false, verbose=false)
+    df = run_convergence_time(ns=[4], orders=[2], force=true, make_plots=false, save_csv=false, verbose=false)
 
     @test nrow(df) == 1
     @test df.n[1] == 4
-    @test df.order[1] == 1
+    @test df.order[1] == 2
     @test isfinite(df.L2_error_w[1])
     @test df.L2_error_w[1] < 1.0
 end
