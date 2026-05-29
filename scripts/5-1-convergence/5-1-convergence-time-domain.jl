@@ -230,13 +230,37 @@ function add_rate_triangle_on_curve!(ax, hs, errs, rate; color=:black)
     length(hs) < 2 && return
     idx = max(2, length(hs) - 1)
     x0 = hs[idx]
-    y0 = errs[idx]
     x1 = idx < length(hs) ? sqrt(hs[idx] * hs[idx + 1]) : 0.7 * x0
-    y1 = y0 * (x1 / x0)^rate
-    lines!(ax, [x1, x0], [y0, y0], color=color, linewidth=1.6)
-    lines!(ax, [x1, x1], [y1, y0], color=color, linewidth=1.6)
-    lines!(ax, [x1, x0], [y1, y0], color=color, linewidth=1.6)
-    text!(ax, sqrt(x0 * x1), sqrt(y0 * y1), text="$(rate)", color=color, fontsize=11, align=(:center, :center))
+
+    # Place triangle slightly above curve to avoid overlap.
+    y_base = 1.20 * errs[idx]
+    y_rate = y_base * (x1 / x0)^rate
+
+    lines!(ax, [x1, x0], [y_base, y_base], color=color, linewidth=1.6)
+    lines!(ax, [x1, x1], [y_rate, y_base], color=color, linewidth=1.6)
+    lines!(ax, [x1, x0], [y_rate, y_base], color=color, linewidth=1.6)
+
+    # Horizontal-side label.
+    text!(
+        ax,
+        sqrt(x0 * x1),
+        1.03 * y_base,
+        text="1",
+        color=color,
+        fontsize=11,
+        align=(:center, :bottom),
+    )
+
+    # Rate label next to the vertical side.
+    text!(
+        ax,
+        x1 / 1.06,
+        sqrt(y_base * y_rate),
+        text="$(rate)",
+        color=color,
+        fontsize=11,
+        align=(:right, :center),
+    )
 end
 
 function plot_convergence(df::DataFrame; p=params)
@@ -259,8 +283,6 @@ function plot_convergence(df::DataFrame; p=params)
         yscale=log10,
         title="(b) Potential-flow convergence",
     )
-    hidexdecorations!(ax_w, grid=false)
-
     markers = [:circle, :rect, :utriangle, :diamond, :cross]
     colors = [:navy, :firebrick, :darkgreen, :goldenrod, :black]
 
@@ -299,19 +321,27 @@ function plot_convergence(df::DataFrame; p=params)
         )
     end
 
-    # Reference slope triangles (aligned with each plotted curve) for both fields.
+    # Reference slope triangles aligned with plotted curves.
     for (i, order) in enumerate(sort(p.orders))
         local_color = colors[i]
         hs_w, errs_w = series_w[order]
-        hs_phi, errs_phi = series_phi[order]
         add_rate_triangle_on_curve!(ax_w, hs_w, errs_w, order + 1; color=local_color)
-        add_rate_triangle_on_curve!(ax_phi, hs_phi, errs_phi, order + 1; color=local_color)
     end
+
+    # Potential flow uses a fixed FE order across runs; show one reference triangle.
+    first_order = sort(p.orders)[1]
+    hs_phi, errs_phi = series_phi[first_order]
+    add_rate_triangle_on_curve!(ax_phi, hs_phi, errs_phi, p.order_phi + 1; color=:black)
 
     xlims!(ax_w, minimum(sorted_h) * 0.9, maximum(sorted_h) * 1.1)
     xlims!(ax_phi, minimum(sorted_h) * 0.9, maximum(sorted_h) * 1.1)
     ylims!(ax_w, 0.5 * minimum(df.L2_error_w), 2.0 * maximum(df.L2_error_w))
     ylims!(ax_phi, 0.5 * minimum(df.L2_error_phi), 2.0 * maximum(df.L2_error_phi))
+
+    # Show ticks at every sampled resolution and label them as 1/n.
+    xtick_labels = ["1/$(n)" for n in sorted_ns]
+    ax_w.xticks = (sorted_h, xtick_labels)
+    ax_phi.xticks = (sorted_h, xtick_labels)
 
     axislegend(ax_w, position=:rb, framevisible=true, title="Polynomial order")
     axislegend(ax_phi, position=:rb, framevisible=true, title="Polynomial order")
