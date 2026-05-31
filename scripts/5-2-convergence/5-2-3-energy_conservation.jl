@@ -1,5 +1,5 @@
 """
-Section 5.1.3: periodic-beam energy conservation
+Section 5.2.3: periodic-beam energy conservation
 """
 
 using DrWatson
@@ -16,13 +16,13 @@ import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
 
 if !isdefined(Main, :params)
-    include("../../src/convergence_5_1_time_domain_main.jl")
+    include("../../src/convergence_5_2_time_domain_main.jl")
 end
 if !isdefined(Main, :VLFS_THEME)
     include("../../src/plot_theme.jl")
 end
 
-function compute_energy_series(problem, result; p=params, verbose_steps::Bool=false, stage_label::String="5-1-3")
+function compute_energy_series(problem, result; p=params, verbose_steps::Bool=false, stage_label::String="5-2-3")
     
     verbose_steps && println("[", stage_label, "] Computing energy series from solution steps...")
     verbose_steps && println("[", stage_label, "]   - Getting integration domains")
@@ -94,7 +94,7 @@ function compute_energy_series(problem, result; p=params, verbose_steps::Bool=fa
 end
 
 function plot_energy_conservation(df::DataFrame)
-    mkpath("plots/5-1-convergence")
+    mkpath("plots/5-2-convergence")
 
     t = collect(Float64.(df.t))
     E0 = df.E_total[1] == 0 ? 1.0 : df.E_total[1]
@@ -122,20 +122,20 @@ function plot_energy_conservation(df::DataFrame)
 
     Label(
         fig[0, :],
-        "Section 5.1: Energy conservation test",
+        "Section 5.2: Energy conservation test",
         fontsize=20,
         font=:bold,
         tellwidth=false,
     )
 
-    pdf_path = "plots/5-1-convergence/fig5_energy_conservation.pdf"
-    png_path = "plots/5-1-convergence/fig5_energy_conservation.png"
+    pdf_path = "plots/5-2-convergence/fig5_energy_conservation.pdf"
+    png_path = "plots/5-2-convergence/fig5_energy_conservation.png"
     save(pdf_path, fig)
     save(png_path, fig, px_per_unit=300 / 96)
     return pdf_path, png_path
 end
 
-function run_5_1_3_energy_conservation(
+function run_5_2_3_energy_conservation(
     ;
     n=16,
     order=2,
@@ -156,7 +156,7 @@ function run_5_1_3_energy_conservation(
     warmup_Δt = Δt
 
     if verbose
-        println("[5-1-3] Stage 1/3: warm-up solve (n=$(warmup_n), order=$(warmup_order), Δt=$(warmup_Δt), tf=$(warmup_Δt))")
+        println("[5-2-3] Stage 1/3: warm-up solve (n=$(warmup_n), order=$(warmup_order), Δt=$(warmup_Δt), tf=$(warmup_Δt))")
     end
     warm = run_warmup_case(
         n=warmup_n,
@@ -165,12 +165,12 @@ function run_5_1_3_energy_conservation(
         order_phi=warmup_order_phi,
         Δt=warmup_Δt,
         verbose_steps=verbose_steps,
-        stage_label="5-1-3 warmup",
+        stage_label="5-2-3 warmup",
     )
     if verbose
-        println("[5-1-3] Warm-up complete: L2_w=$(warm.l2_w), L2_phi=$(warm.l2_ϕ)")
-        println("[5-1-3] Stage 2/3: energy-conservation solve")
-        println("[5-1-3] Energy conservation solve parameters: n=$(n), order=$(order), order_phi=$(order_phi), k=$(k), Δt=$(Δt), tf=$(tf)")
+        println("[5-2-3] Warm-up complete: L2_w=$(warm.l2_w), L2_phi=$(warm.l2_ϕ)")
+        println("[5-2-3] Stage 2/3: energy-conservation solve")
+        println("[5-2-3] Energy conservation solve parameters: n=$(n), order=$(order), order_phi=$(order_phi), k=$(k), Δt=$(Δt), tf=$(tf)")
     end
     cfg = Dict(
         :n => n,
@@ -182,7 +182,7 @@ function run_5_1_3_energy_conservation(
     )
 
     out, _ = produce_or_load(
-        "data/5-1-convergence",
+        "data/5-2-convergence",
         cfg;
         force=force,
         filename="energy_n$(n)_p$(order)_dt$(Δt)_tf$(tf)",
@@ -198,14 +198,14 @@ function run_5_1_3_energy_conservation(
             c[:order];
             p=p_energy,
             verbose_steps=verbose_steps,
-            stage_label="5-1-3 main",
+            stage_label="5-2-3 main",
         )
         df_local = compute_energy_series(
             problem,
             result;
             p=p_energy,
             verbose_steps=verbose_steps,
-            stage_label="5-1-3 main",
+            stage_label="5-2-3 main",
         )
 
         Dict(
@@ -234,7 +234,7 @@ function run_5_1_3_energy_conservation(
     )
 
     if save_csv
-        out_csv = "data/5-1-convergence/energy_conservation.csv"
+        out_csv = "data/5-2-convergence/energy_conservation.csv"
         mkpath(dirname(out_csv))
         open(out_csv, "w") do io
             writedlm(io, ["t" "E_kin_f" "E_pot_f" "E_kin_s" "E_ela_s" "E_phi" "E_w" "E_total" "rel_drift"], ',')
@@ -249,7 +249,7 @@ function run_5_1_3_energy_conservation(
     end
 
     if verbose
-        println("[5-1-3] Stage 3/3: summary and outputs complete")
+        println("[5-2-3] Stage 3/3: summary and outputs complete")
     end
 
     if verbose
@@ -262,5 +262,5 @@ function run_5_1_3_energy_conservation(
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_5_1_3_energy_conservation()
+    run_5_2_3_energy_conservation()
 end

@@ -1,5 +1,5 @@
 """
-Section 5.1.2: periodic-beam time-step convergence
+Section 5.2.2: periodic-beam time-step convergence
 """
 
 using DrWatson
@@ -16,7 +16,7 @@ import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
 
 if !isdefined(Main, :params)
-    include("../../src/convergence_5_1_time_domain_main.jl")
+    include("../../src/convergence_5_2_time_domain_main.jl")
 end
 if !isdefined(Main, :VLFS_THEME)
     include("../../src/plot_theme.jl")
@@ -57,7 +57,7 @@ function add_rate_triangle_time!(ax, hs, errs, rate; color=:black)
 end
 
 function plot_time_convergence(df::DataFrame)
-    mkpath("plots/5-1-convergence")
+    mkpath("plots/5-2-convergence")
 
     sort!(df, :Δt, rev=true)
     Δt_vals = collect(Float64.(df.Δt))
@@ -90,20 +90,20 @@ function plot_time_convergence(df::DataFrame)
 
     Label(
         fig[0, :],
-        "Section 5.1: Time-step convergence test",
+        "Section 5.2: Time-step convergence test",
         fontsize=20,
         font=:bold,
         tellwidth=false,
     )
 
-    pdf_path = "plots/5-1-convergence/fig5_time_convergence.pdf"
-    png_path = "plots/5-1-convergence/fig5_time_convergence.png"
+    pdf_path = "plots/5-2-convergence/fig5_time_convergence.pdf"
+    png_path = "plots/5-2-convergence/fig5_time_convergence.png"
     save(pdf_path, fig)
     save(png_path, fig, px_per_unit=300 / 96)
     return pdf_path, png_path
 end
 
-function run_5_1_2_time_convergence(
+function run_5_2_2_time_convergence(
     ;
     Δts=[1.0 * 2.0^(-i) for i in 0:4],
     n=64,
@@ -117,7 +117,7 @@ function run_5_1_2_time_convergence(
     verbose=true,
     verbose_steps=false,
 )
-    mkpath("data/5-1-convergence")
+    mkpath("data/5-2-convergence")
 
     warmup_n = minimum(params.ns)
     warmup_order = minimum(params.orders)
@@ -126,7 +126,7 @@ function run_5_1_2_time_convergence(
     warmup_Δt = minimum(Δts)
 
     if verbose
-        println("[5-1-2] Stage 1/3: warm-up solve (n=$(warmup_n), order=$(warmup_order), Δt=$(warmup_Δt), tf=$(warmup_Δt))")
+        println("[5-2-2] Stage 1/3: warm-up solve (n=$(warmup_n), order=$(warmup_order), Δt=$(warmup_Δt), tf=$(warmup_Δt))")
     end
     warm = run_warmup_case(
         n=warmup_n,
@@ -135,17 +135,17 @@ function run_5_1_2_time_convergence(
         order_phi=warmup_order_phi,
         Δt=warmup_Δt,
         verbose_steps=verbose_steps,
-        stage_label="5-1-2 warmup",
+        stage_label="5-2-2 warmup",
     )
     if verbose
-        println("[5-1-2] Warm-up complete: L2_w=$(warm.l2_w), L2_phi=$(warm.l2_ϕ)")
-        println("[5-1-2] Stage 2/3: time-step convergence sweep")
+        println("[5-2-2] Warm-up complete: L2_w=$(warm.l2_w), L2_phi=$(warm.l2_ϕ)")
+        println("[5-2-2] Stage 2/3: time-step convergence sweep")
     end
     rows = Dict[]
 
     for Δt in Δts
         if verbose
-            println("[5-1-2] Solving case Δt=$(Δt), n=$(n), order=$(order)")
+            println("[5-2-2] Solving case Δt=$(Δt), n=$(n), order=$(order)")
         end
         cfg = Dict(
             :n => n,
@@ -157,7 +157,7 @@ function run_5_1_2_time_convergence(
         )
 
         out, _ = produce_or_load(
-            "data/5-1-convergence",
+            "data/5-2-convergence",
             cfg;
             force=force,
             filename="time_step_n$(n)_p$(order)_dt$(Δt)",
@@ -173,7 +173,7 @@ function run_5_1_2_time_convergence(
                 c[:order];
                 p=p_time,
                 verbose_steps=verbose_steps,
-                stage_label="5-1-2 Δt=$(c[:Δt])",
+                stage_label="5-2-2 Δt=$(c[:Δt])",
             )
             l2_w, l2_ϕ = compute_errors(problem, result; p=p_time, t_end=t_end)
 
@@ -194,7 +194,7 @@ function run_5_1_2_time_convergence(
     sort!(df, :Δt, rev=true)
 
     if save_csv
-        out_csv = "data/5-1-convergence/convergence_time_step.csv"
+        out_csv = "data/5-2-convergence/convergence_time_step.csv"
         mkpath(dirname(out_csv))
         open(out_csv, "w") do io
             writedlm(io, ["Δt" "n_steps" "n" "order" "L2_error_w" "L2_error_phi"], ',')
@@ -209,7 +209,7 @@ function run_5_1_2_time_convergence(
     end
 
     if verbose
-        println("[5-1-2] Stage 3/3: summary and outputs complete")
+        println("[5-2-2] Stage 3/3: summary and outputs complete")
     end
 
     if verbose
@@ -233,5 +233,5 @@ function run_5_1_2_time_convergence(
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_5_1_2_time_convergence()
+    run_5_2_2_time_convergence()
 end

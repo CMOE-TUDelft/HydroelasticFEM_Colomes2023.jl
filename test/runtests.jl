@@ -183,9 +183,9 @@ function _solve_freq_joint_beam(; nx=N_COARSE, p=P_COARSE)
     return result, w, xs, Ls, H
 end
 
-@testset "5-1-convergence-time-domain-script" begin
-    include("../scripts/5-1-convergence/5-1-1-spatial_convergence.jl")
-    df = run_5_1_1_spatial_convergence(ns=[4], orders=[2], force=true, make_plots=false, save_csv=false, verbose=false)
+@testset "5-2-convergence-time-domain-script" begin
+    include("../scripts/5-2-convergence/5-2-1-spatial_convergence.jl")
+    df = run_5_2_1_spatial_convergence(ns=[4], orders=[2], force=true, make_plots=false, save_csv=false, verbose=false)
 
     @test nrow(df) == 1
     @test df.n[1] == 4
@@ -194,7 +194,7 @@ end
     @test df.L2_error_w[1] < 1.0
 end
 
-@testset "5-1-convergence-time-domain" begin
+@testset "5-2-convergence-time-domain" begin
     result, w, xs, Ls, H = _solve_time_membrane(nx=N_COARSE, p=P_COARSE)
     @test !isnothing(result)
     @test length(get_free_dof_values(w)) == EXPECTED_W_DOFS_N4

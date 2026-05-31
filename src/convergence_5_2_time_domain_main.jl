@@ -1,8 +1,8 @@
 """
-Core computational body for Section 5.1 periodic-beam convergence (time domain).
+Core computational body for Section 5.2 periodic-beam convergence (time domain).
 
 This file intentionally contains the simulation/physics logic only.
-Plotting and reporting are kept in `scripts/5-1-convergence/`.
+Plotting and reporting are kept in `scripts/5-2-convergence/`.
 """
 
 const params = (

@@ -1,5 +1,5 @@
 """
-Section 5.1.1: periodic-beam spatial convergence (time domain)
+Section 5.2.1: periodic-beam spatial convergence (time domain)
 """
 
 using DrWatson
@@ -16,14 +16,14 @@ import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
 
 if !isdefined(Main, :params)
-    include("../../src/convergence_5_1_time_domain_main.jl")
+    include("../../src/convergence_5_2_time_domain_main.jl")
 end
 if !isdefined(Main, :VLFS_THEME)
     include("../../src/plot_theme.jl")
 end
 
 function write_case_pvd(problem, result; n::Int, order::Int, p=params, step_stride::Int=20, write_all_steps::Bool=false)
-    outdir = joinpath("data", "VTK", "5-1-convergence", @sprintf("n%d_p%d", n, order))
+    outdir = joinpath("data", "VTK", "5-2-convergence", @sprintf("n%d_p%d", n, order))
     mkpath(outdir)
 
     trians = S.get_triangulations(problem)
@@ -130,7 +130,7 @@ function add_rate_triangle_on_curve!(ax, hs, errs, rate; color=:black)
 end
 
 function plot_convergence(df::DataFrame; p=params)
-    mkpath("plots/5-1-convergence")
+    mkpath("plots/5-2-convergence")
 
     fig = Figure(size=(1120, 520), fontsize=16)
     ax_w = Axis(
@@ -217,8 +217,8 @@ function plot_convergence(df::DataFrame; p=params)
         tellwidth=false,
     )
 
-    pdf_path = "plots/5-1-convergence/fig5_convergence_time.pdf"
-    png_path = "plots/5-1-convergence/fig5_convergence_time.png"
+    pdf_path = "plots/5-2-convergence/fig5_convergence_time.pdf"
+    png_path = "plots/5-2-convergence/fig5_convergence_time.png"
     save(pdf_path, fig)
     save(png_path, fig, px_per_unit=300 / 96)
 
@@ -239,7 +239,7 @@ function print_summary(df::DataFrame)
     end
 end
 
-function run_5_1_1_spatial_convergence(
+function run_5_2_1_spatial_convergence(
     ;
     ns=params.ns,
     orders=params.orders,
@@ -252,7 +252,7 @@ function run_5_1_1_spatial_convergence(
     pvd_step_stride=20,
     pvd_all_steps=false,
 )
-    mkpath("data/5-1-convergence")
+    mkpath("data/5-2-convergence")
 
     warmup_n = minimum(ns)
     warmup_order = minimum(orders)
@@ -261,7 +261,7 @@ function run_5_1_1_spatial_convergence(
     warmup_Δt = params.Δt
 
     if verbose
-        println("[5-1-1] Stage 1/3: warm-up solve (n=$(warmup_n), order=$(warmup_order), Δt=$(warmup_Δt), tf=$(warmup_Δt))")
+        println("[5-2-1] Stage 1/3: warm-up solve (n=$(warmup_n), order=$(warmup_order), Δt=$(warmup_Δt), tf=$(warmup_Δt))")
     end
     warm = run_warmup_case(
         n=warmup_n,
@@ -270,18 +270,18 @@ function run_5_1_1_spatial_convergence(
         order_phi=warmup_order_phi,
         Δt=warmup_Δt,
         verbose_steps=verbose_steps,
-        stage_label="5-1-1 warmup",
+        stage_label="5-2-1 warmup",
     )
     if verbose
-        println("[5-1-1] Warm-up complete: L2_w=$(warm.l2_w), L2_phi=$(warm.l2_ϕ)")
-        println("[5-1-1] Stage 2/3: spatial convergence sweep")
+        println("[5-2-1] Warm-up complete: L2_w=$(warm.l2_w), L2_phi=$(warm.l2_ϕ)")
+        println("[5-2-1] Stage 2/3: spatial convergence sweep")
     end
 
     rows = Dict[]
     for order in orders
         for n in ns
             if verbose
-                println("[5-1-1] Solving case n=$(n), order=$(order)")
+                println("[5-2-1] Solving case n=$(n), order=$(order)")
             end
             cfg = Dict(
                 :n => n,
@@ -300,7 +300,7 @@ function run_5_1_1_spatial_convergence(
                     order;
                     p=params,
                     verbose_steps=verbose_steps,
-                    stage_label="5-1-1 n=$(n) p=$(order)",
+                    stage_label="5-2-1 n=$(n) p=$(order)",
                 )
                 l2_w, l2_ϕ = compute_errors(problem, result; p=params, t_end=t_end)
                 write_case_pvd(
@@ -319,13 +319,13 @@ function run_5_1_1_spatial_convergence(
                     :L2_error_phi => l2_ϕ,
                 )
             else
-                out, _ = produce_or_load("data/5-1-convergence", cfg; force=force, filename="time_n$(n)_p$(order)") do c
+                out, _ = produce_or_load("data/5-2-convergence", cfg; force=force, filename="time_n$(n)_p$(order)") do c
                     run_case(
                         c[:n],
                         c[:order];
                         p=params,
                         verbose_steps=verbose_steps,
-                        stage_label="5-1-1 n=$(c[:n]) p=$(c[:order])",
+                        stage_label="5-2-1 n=$(c[:n]) p=$(c[:order])",
                     )
                 end
             end
@@ -338,7 +338,7 @@ function run_5_1_1_spatial_convergence(
     sort!(df, [:order, :n])
 
     if save_csv
-        save_convergence_csv(df, "data/5-1-convergence/convergence_time.csv")
+        save_convergence_csv(df, "data/5-2-convergence/convergence_time.csv")
     end
 
     if make_plots
@@ -348,7 +348,7 @@ function run_5_1_1_spatial_convergence(
     end
 
     if verbose
-        println("[5-1-1] Stage 3/3: summary and outputs complete")
+        println("[5-2-1] Stage 3/3: summary and outputs complete")
     end
 
     if verbose
@@ -358,8 +358,8 @@ function run_5_1_1_spatial_convergence(
     return df
 end
 
-run_convergence_frequency(; kwargs...) = run_5_1_1_spatial_convergence(; kwargs...)
+run_convergence_frequency(; kwargs...) = run_5_2_1_spatial_convergence(; kwargs...)
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_5_1_1_spatial_convergence()
+    run_5_2_1_spatial_convergence()
 end
