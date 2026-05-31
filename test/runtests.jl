@@ -184,8 +184,8 @@ function _solve_freq_joint_beam(; nx=N_COARSE, p=P_COARSE)
 end
 
 @testset "5-1-convergence-time-domain-script" begin
-    include("../scripts/5-1-convergence/5-1-convergence-time-domain.jl")
-    df = run_convergence_time(ns=[4], orders=[2], force=true, make_plots=false, save_csv=false, verbose=false)
+    include("../scripts/5-1-convergence/5-1-1-spatial_convergence.jl")
+    df = run_5_1_1_spatial_convergence(ns=[4], orders=[2], force=true, make_plots=false, save_csv=false, verbose=false)
 
     @test nrow(df) == 1
     @test df.n[1] == 4
