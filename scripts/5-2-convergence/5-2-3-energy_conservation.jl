@@ -16,7 +16,7 @@ import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
 
 if !isdefined(Main, :params)
-    include("../../src/convergence_5_2_time_domain_main.jl")
+    include("../../src/5_2_convergence_time_domain_main.jl")
 end
 if !isdefined(Main, :VLFS_THEME)
     include("../../src/plot_theme.jl")

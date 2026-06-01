@@ -74,6 +74,9 @@ function exact_wave_functions(; p=params)
     return out
 end
 
+"""
+Build the time-domain problem and run the simulation.
+"""
 function build_time_problem(
     n::Int,
     order::Int;
@@ -134,6 +137,9 @@ function build_time_problem(
     return problem, result, p.tf
 end
 
+"""
+Compute the L2 errors of the solution at the end of the simulation against the exact wave functions.
+"""
 function compute_errors(problem, result; p=params, kwargs...)
     t_end = get(kwargs, :t_end, p.tf)
     wv = exact_wave_functions(p=p)
@@ -159,6 +165,9 @@ function compute_errors(problem, result; p=params, kwargs...)
     return l2_w, l2_ϕ
 end
 
+"""
+Run a single time-domain simulation case and compute errors.
+"""
 function run_case(n::Int, order::Int; p=params, verbose_steps::Bool=false, stage_label::String="run_case")
     problem, result, t_end = build_time_problem(
         n,
@@ -177,7 +186,8 @@ function run_case(n::Int, order::Int; p=params, verbose_steps::Bool=false, stage
     )
 end
 
-"""Run a single-step warm-up solve at coarse resolution.
+"""
+Run a single-step warm-up solve at coarse resolution.
 
 The warm-up always uses `tf = Δt`, i.e., one single time step.
 """
