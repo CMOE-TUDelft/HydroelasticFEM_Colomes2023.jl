@@ -5,6 +5,23 @@ This file intentionally contains the simulation/physics logic only.
 Plotting and reporting are kept in `scripts/5-2-convergence/`.
 """
 
+module ConvergenceTimeDomain
+
+using Gridap
+
+import HydroElasticFEM as HE
+import HydroElasticFEM.Physics as P
+import HydroElasticFEM.Simulation as S
+import HydroElasticFEM.ParameterHandler as PH
+
+export params
+export build_regular_wave_state
+export exact_wave_functions
+export build_time_problem
+export compute_errors
+export run_case
+export run_warmup_case
+
 const params = (
     L = 2 * pi,
     H = 1.0,
@@ -218,3 +235,5 @@ function run_warmup_case(
     l2_w, l2_ϕ = compute_errors(problem, result; p=p_warm, t_end=t_end)
     return (; l2_w, l2_ϕ)
 end
+
+end # module ConvergenceTimeDomain

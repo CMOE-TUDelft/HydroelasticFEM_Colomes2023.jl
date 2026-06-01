@@ -2,6 +2,8 @@
 Section 5.2.2: periodic-beam time-step convergence
 """
 
+module Section5_2_2_TimeConvergence
+
 using DrWatson
 using Gridap
 using CairoMakie
@@ -10,15 +12,19 @@ using DelimitedFiles
 using Printf
 
 using HydroElasticFEM_Colomes2023
+import HydroElasticFEM_Colomes2023.ConvergenceTimeDomain
 import HydroElasticFEM as HE
 import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
 
-if !isdefined(Main, :params)
-    include("../../src/5_2_convergence_time_domain_main.jl")
-end
-if !isdefined(Main, :VLFS_THEME)
+const var"5_2" = HydroElasticFEM_Colomes2023.ConvergenceTimeDomain
+const params = var"5_2".params
+const build_time_problem = var"5_2".build_time_problem
+const compute_errors = var"5_2".compute_errors
+const run_warmup_case = var"5_2".run_warmup_case
+
+if !isdefined(@__MODULE__, :VLFS_THEME)
     include("../../src/plot_theme.jl")
 end
 
@@ -232,6 +238,8 @@ function run_5_2_2_time_convergence(
     return df
 end
 
+end # module Section5_2_2_TimeConvergence
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    run_5_2_2_time_convergence()
+    Section5_2_2_TimeConvergence.run_5_2_2_time_convergence()
 end
