@@ -2,8 +2,6 @@
 Section 5.2.1: periodic-beam spatial convergence (time domain)
 """
 
-module Section5_2_1_SpatialConvergence
-
 using DrWatson
 using Gridap
 using CairoMakie
@@ -11,14 +9,12 @@ using DataFrames
 using DelimitedFiles
 using Printf
 
-using HydroElasticFEM_Colomes2023
-import HydroElasticFEM_Colomes2023.ConvergenceTimeDomain
 import HydroElasticFEM as HE
 import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
 
-const var"5_2" = HydroElasticFEM_Colomes2023.ConvergenceTimeDomain
+const var"5_2" = ConvergenceTimeDomain
 const params = var"5_2".params
 const exact_wave_functions = var"5_2".exact_wave_functions
 const build_time_problem = var"5_2".build_time_problem
@@ -368,8 +364,6 @@ end
 
 run_convergence_frequency(; kwargs...) = run_5_2_1_spatial_convergence(; kwargs...)
 
-end # module Section5_2_1_SpatialConvergence
-
 if abspath(PROGRAM_FILE) == @__FILE__
-    Section5_2_1_SpatialConvergence.run_5_2_1_spatial_convergence()
+    run_5_2_1_spatial_convergence()
 end
