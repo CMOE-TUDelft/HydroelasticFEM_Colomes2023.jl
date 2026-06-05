@@ -2,205 +2,138 @@
 Section 5.2.2: periodic-beam time-step convergence
 """
 
-using DrWatson
-using Gridap
-using CairoMakie
-using DataFrames
-using DelimitedFiles
-using Printf
-
-import HydroElasticFEM as HE
-import HydroElasticFEM.Physics as P
-import HydroElasticFEM.Simulation as S
-import HydroElasticFEM.ParameterHandler as PH
-
-const var"5_2" = ConvergenceTimeDomain
-const params = var"5_2".params
-const build_time_problem = var"5_2".build_time_problem
-const compute_errors = var"5_2".compute_errors
-const run_warmup_case = var"5_2".run_warmup_case
-
 if !isdefined(@__MODULE__, :VLFS_THEME)
     include("../../src/plot_theme.jl")
 end
 
-function add_rate_triangle_time!(ax, hs, errs, rate; color=:black)
-    length(hs) < 2 && return
-    idx = max(2, length(hs) - 1)
-    x0 = hs[idx]
-    x1 = idx < length(hs) ? sqrt(hs[idx] * hs[idx + 1]) : 0.7 * x0
+# ─── Plotting helpers ─────────────────────────────────────────────────────────
 
-    y_base = 1.20 * errs[idx]
+function _add_rate_tri_time!(ax, dts, errs, rate; color=:black)
+    length(dts) < 2 && return
+    idx = 2#max(2, length(dts) - 1)
+    x0 = dts[idx]
+    x1 = idx < length(dts) ? sqrt(dts[idx] * dts[idx+1]) : 1.2 * x0
+    y_base = 0.8 * errs[idx]
     y_rate = y_base * (x1 / x0)^rate
-
     lines!(ax, [x1, x0], [y_base, y_base], color=color, linewidth=1.6)
     lines!(ax, [x1, x1], [y_rate, y_base], color=color, linewidth=1.6)
     lines!(ax, [x1, x0], [y_rate, y_base], color=color, linewidth=1.6)
-
-    text!(
-        ax,
-        sqrt(x0 * x1),
-        1.03 * y_base,
-        text="1",
-        color=color,
-        fontsize=11,
-        align=(:center, :bottom),
-    )
-
-    text!(
-        ax,
-        x1 / 1.06,
-        sqrt(y_base * y_rate),
-        text="$(rate)",
-        color=color,
-        fontsize=11,
-        align=(:right, :center),
-    )
+    text!(ax, sqrt(x0*x1), y_base*0.85,      text="1",       color=color, fontsize=11, align=(:center, :bottom))
+    text!(ax, x1*1.06,     sqrt(y_base*y_rate), text="$(rate)", color=color, fontsize=11, align=(:right,  :center))
 end
 
-function plot_time_convergence(df::DataFrame)
+function plot_time_convergence(df::DataFrame; L=2π)
     mkpath("plots/5-2-convergence")
+    markers = [:circle, :rect, :utriangle]
+    colors  = [:navy, :firebrick, :darkgreen]
+    
+    sub = sort(df, :dt)
+    dt  = collect(Float64.(sub.dt))
 
-    sort!(df, :Δt, rev=true)
-    Δt_vals = collect(Float64.(df.Δt))
-    e_w = collect(Float64.(df.L2_error_w))
-    e_ϕ = collect(Float64.(df.L2_error_phi))
+    fig  = Figure(size=(1120, 520), fontsize=16)
+    ax_η = Axis(fig[1,1], xlabel="Δt", ylabel="L² error (deflection η)",
+                xticks=(dt, string.(dt)),
+                xscale=log10, yscale=log10, title="(a) Beam deflection convergence")
+    ax_ϕ = Axis(fig[1,2], xlabel="Δt", ylabel="L² error (potential ϕ)",
+                xticks=(dt, string.(dt)),
+                xscale=log10, yscale=log10, title="(b) Potential-flow convergence")
 
-    fig = Figure(size=(1120, 520), fontsize=16)
-    ax_w = Axis(
-        fig[1, 1],
-        xlabel="Δt",
-        ylabel="L² error in deflection",
-        xscale=log10,
-        yscale=log10,
-        title="(a) Time convergence in deflection",
-    )
-    ax_ϕ = Axis(
-        fig[1, 2],
-        xlabel="Δt",
-        ylabel="L² error in potential",
-        xscale=log10,
-        yscale=log10,
-        title="(b) Time convergence in potential",
-    )
+    e_η = collect(Float64.(sub.e_η_i))
+    e_ϕ = collect(Float64.(sub.e_ϕ_i))
+    scatterlines!(ax_η, dt, e_η, marker=markers[1], markersize=10, color=colors[1], linewidth=2.6, label="p = 2")
+    scatterlines!(ax_ϕ, dt, e_ϕ, marker=markers[1], markersize=10, color=colors[1], linewidth=2.6, label="p = 2")
+    _add_rate_tri_time!(ax_η, dt, e_η, 2; color=colors[1])
+    _add_rate_tri_time!(ax_ϕ, dt, e_ϕ, 2; color=colors[1])
 
-    scatterlines!(ax_w, Δt_vals, e_w, marker=:circle, markersize=10, color=:navy, linewidth=2.6)
-    scatterlines!(ax_ϕ, Δt_vals, e_ϕ, marker=:rect, markersize=10, color=:firebrick, linewidth=2.6)
-
-    add_rate_triangle_time!(ax_w, Δt_vals, e_w, 2; color=:navy)
-    add_rate_triangle_time!(ax_ϕ, Δt_vals, e_ϕ, 2; color=:firebrick)
-
-    Label(
-        fig[0, :],
-        "Section 5.2: Time-step convergence test",
-        fontsize=20,
-        font=:bold,
-        tellwidth=false,
-    )
-
-    pdf_path = "plots/5-2-convergence/fig5_time_convergence.pdf"
-    png_path = "plots/5-2-convergence/fig5_time_convergence.png"
-    save(pdf_path, fig)
-    save(png_path, fig, px_per_unit=300 / 96)
-    return pdf_path, png_path
+    axislegend(ax_η, position=:rb)
+    axislegend(ax_ϕ, position=:rb)
+    save("plots/5-2-convergence/fig5_time_convergence.pdf", fig)
+    save("plots/5-2-convergence/fig5_time_convergence.png", fig, px_per_unit=300/96)
 end
+
+function _print_time_summary(df::DataFrame; L=2π)
+    println("\nTime convergence summary:")
+    sub  = sort(df, :dt)
+    dts  = collect(Float64.(sub.dt))
+    errs = collect(Float64.(sub.e_η_i))
+    rates = [log(errs[i]/errs[i+1]) / log(dts[i]/dts[i+1]) for i in 1:length(errs)-1]
+    @printf("  p = %d -> rates(η) = %s\n", 2, string(round.(rates, digits=3)))
+end
+
+# ─── Main runner ──────────────────────────────────────────────────────────────
 
 function run_5_2_2_time_convergence(
     ;
-    Δts=[1.0 * 2.0^(-i) for i in 0:4],
-    n=64,
-    order=4,
-    order_phi=order,
-    k=1,
-    tf=1.0,
     force=false,
     make_plots=true,
     save_csv=true,
     verbose=true,
-    verbose_steps=false,
+    verbose_steps=false,      
 )
-    mkpath("data/5-2-convergence")
-
-    warmup_n = minimum(params.ns)
-    warmup_order = minimum(params.orders)
-    warmup_k = k
-    warmup_order_phi = min(order_phi, minimum(params.orders))
-    warmup_Δt = minimum(Δts)
-
-    if verbose
-        println("[5-2-2] Stage 1/3: warm-up solve (n=$(warmup_n), order=$(warmup_order), Δt=$(warmup_Δt), tf=$(warmup_Δt))")
-    end
-    warm = run_warmup_case(
-        n=warmup_n,
-        order=warmup_order,
-        k=warmup_k,
-        order_phi=warmup_order_phi,
-        Δt=warmup_Δt,
-        verbose_steps=verbose_steps,
-        stage_label="5-2-2 warmup",
-    )
-    if verbose
-        println("[5-2-2] Warm-up complete: L2_w=$(warm.l2_w), L2_phi=$(warm.l2_ϕ)")
-        println("[5-2-2] Stage 2/3: time-step convergence sweep")
-    end
-    rows = Dict[]
-
-    for Δt in Δts
-        if verbose
-            println("[5-2-2] Solving case Δt=$(Δt), n=$(n), order=$(order)")
-        end
-        cfg = Dict(
-            :n => n,
-            :order => order,
-            :order_phi => order_phi,
-            :k => k,
-            :Δt => Δt,
-            :tf => tf,
+    # ── Define per-case execution function (mirrors MonolithicFEMVLFS) ───────
+    function run_5_2_2(case::PeriodicBeam_params)
+        case_name = savename(case)
+        println("-------------")
+        println("Case: ", case_name)
+        e_ϕ, e_η, = run_periodic_beam(case)
+        e_ϕ_i = last(e_ϕ)
+        e_η_i = last(e_η)
+        return Dict(
+            "name"   => case.name,
+            "n"      => case.n,
+            "dt"     => Float64(case.dt),
+            "tf"     => Float64(case.tf),
+            "orderϕ" => case.orderϕ,
+            "orderη" => case.orderη,
+            "k"      => case.k,
+            "e_ϕ_i"  => e_ϕ_i,
+            "e_η_i"  => e_η_i,
         )
+    end
 
-        out, _ = produce_or_load(
-            "data/5-2-convergence",
-            cfg;
-            force=force,
-            filename="time_step_n$(n)_p$(order)_dt$(Δt)",
-        ) do c
-            p_time = merge(params, (
-                Δt=c[:Δt],
-                tf=c[:tf],
-                k=c[:k],
-                order_phi=c[:order_phi],
-            ))
-            problem, result, t_end = build_time_problem(
-                c[:n],
-                c[:order];
-                p=p_time,
-                verbose_steps=verbose_steps,
-                stage_label="5-2-2 Δt=$(c[:Δt])",
-            )
-            l2_w, l2_ϕ = compute_errors(problem, result; p=p_time, t_end=t_end)
+    # ── Warm-up case ─────────────────────────────────────────────────────────
+    k  = 1
+    H  = 1.0
+    g  = 9.81
+    ω  = sqrt(g * k * tanh(k * H))
+    T  = 2π / ω
+    Δt = T / 1
+    n  = 3
+    order = 2
+    path = datadir("5-2-2-periodic-beam-time-convergence")
+    case = PeriodicBeam_params(name="Warm-up", n=n, dt=Δt, tf=T, k=k, orderϕ=order, orderη=order)
+    verbose && println("[5-2-2] Warm-up: n=$(n), order=$(order), k=$(k), Δt=$(Δt)")
+    produce_or_load(path, case, run_5_2_2; force=force, digits=8)
 
-            Dict(
-                :Δt => c[:Δt],
-                :n_steps => Int(round(c[:tf] / c[:Δt])),
-                :n => c[:n],
-                :order => c[:order],
-                :L2_error_w => l2_w,
-                :L2_error_phi => l2_ϕ,
-            )
-        end
+    # ── Time convergence: k=1, small h high order, varying Δt ────────
+    Δts=[1.0 * 2.0^(-i) for i in 0:4]
+    n=64
+    order=4
+    order_phi=order
+    k=1
+    tf=1.0
+    verbose && println("[5-2-2] Time convergence: k=$(k), n=$(n), order=$(order), order_phi=$(order_phi), tf=$(tf)")
 
-        push!(rows, out)
+    rows = Dict[]
+    for Δt in Δts
+      case  = PeriodicBeam_params(
+          name="timeConvergence",
+          n=n, dt=Δt, tf=tf, k=k,
+          orderϕ=order, orderη=order,
+      )
+      verbose && println("[5-2-2] Solving: n=$(n), order=$(order), Δt=$(Δt)")
+      data, _ = produce_or_load(path, case, run_5_2_2; force=force, digits=8)
+      push!(rows, data)
     end
 
     df = DataFrame(rows)
-    sort!(df, :Δt, rev=true)
+    sort!(df, [:dt])
 
     if save_csv
-        out_csv = "data/5-2-convergence/convergence_time_step.csv"
-        mkpath(dirname(out_csv))
-        open(out_csv, "w") do io
-            writedlm(io, ["Δt" "n_steps" "n" "order" "L2_error_w" "L2_error_phi"], ',')
-            writedlm(io, Matrix(df[:, [:Δt, :n_steps, :n, :order, :L2_error_w, :L2_error_phi]]), ',')
+        mkpath("data/5-2-convergence")
+        open("data/5-2-convergence/convergence_time.csv", "w") do io
+            writedlm(io, ["Δt" "L2_error_w" "L2_error_phi"], ',')
+            writedlm(io, [df.dt df.e_η_i df.e_ϕ_i], ',')
         end
     end
 
@@ -211,24 +144,7 @@ function run_5_2_2_time_convergence(
     end
 
     if verbose
-        println("[5-2-2] Stage 3/3: summary and outputs complete")
-    end
-
-    if verbose
-        println("\nTime convergence summary:")
-        println(df)
-        if nrow(df) > 1
-            rates_w = [
-                log(df.L2_error_w[i] / df.L2_error_w[i + 1]) / log(df.Δt[i] / df.Δt[i + 1])
-                for i in 1:(nrow(df) - 1)
-            ]
-            rates_ϕ = [
-                log(df.L2_error_phi[i] / df.L2_error_phi[i + 1]) / log(df.Δt[i] / df.Δt[i + 1])
-                for i in 1:(nrow(df) - 1)
-            ]
-            @printf("Estimated temporal rates (w): %s\n", string(round.(rates_w, digits=3)))
-            @printf("Estimated temporal rates (ϕ): %s\n", string(round.(rates_ϕ, digits=3)))
-        end
+        _print_time_summary(df)
     end
 
     return df
