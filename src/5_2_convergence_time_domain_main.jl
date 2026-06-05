@@ -1,239 +1,162 @@
 """
 Core computational body for Section 5.2 periodic-beam convergence (time domain).
-
-This file intentionally contains the simulation/physics logic only.
-Plotting and reporting are kept in `scripts/5-2-convergence/`.
 """
 
 module ConvergenceTimeDomain
 
 using Gridap
+using Parameters
 
 import HydroElasticFEM as HE
 import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
 
-export params
-export build_regular_wave_state
-export exact_wave_functions
-export build_time_problem
-export compute_errors
-export run_case
-export run_warmup_case
+export PeriodicBeam_params
+export run_periodic_beam
 
-const params = (
-    L = 2 * pi,
-    H = 1.0,
-    g = 9.81,
-    ρ_w = 1.0e3,
-    ρ_b = 1.0e2,
-    h_b = 1.0e-2,
-    k = 15,
-    η0 = 0.01,
-    Δt = 1.0e-6,
-    tf = 1.0e-4,
-    order_phi = 2,
-    ns = [4, 8, 16, 32],
-    orders = [2, 3, 4],
-)
-
-const _exact_wave_cache = Dict{NamedTuple, NamedTuple}()
-
-"""Create a WaveSpec AiryState used to parameterize the exact regular-wave fields."""
-function build_regular_wave_state(; p=params)
-    ω = sqrt(p.g * p.k * tanh(p.k * p.H))
-    T = 2 * pi / ω
-    H_wave = 2 * p.η0
-
-    spec = P.WaveSpec.ContinuousSpectrums.RegularWave(H_wave, T)
-    ds = P.WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(spec; mess=false)
-    spread = P.WaveSpec.AngularSpreading.DiscreteAngularSpreading(0.0)
-    θ_vec = [0.0]
-    return P.WaveSpec.AiryWaves.AiryState(ds, spread, 1, 1, [ω], [p.k], θ_vec, p.H, 1)
+@with_kw struct PeriodicBeam_params
+    name::String        = "PeriodicBeam"
+    n::Int              = 4
+    dt::Real            = 0.001
+    tf::Real            = 1.0
+    orderϕ::Int         = 2
+    orderη::Int         = 2
+    k::Int              = 1
+    vtk_output::Bool    = false
+    verbose_steps::Bool = false
 end
 
-"""Return constants and exact field functions used in the benchmark."""
-function exact_wave_functions(; p=params)
-    cache_key = (
-        L = p.L,
-        H = p.H,
-        g = p.g,
-        ρ_w = p.ρ_w,
-        ρ_b = p.ρ_b,
-        h_b = p.h_b,
-        k = p.k,
-        η0 = p.η0,
-        tf = p.tf,
-        ns_max = maximum(p.ns),
-    )
-    if haskey(_exact_wave_cache, cache_key)
-        return _exact_wave_cache[cache_key]
-    end
+function run_periodic_beam(params::PeriodicBeam_params)
+    @unpack name, n, dt, tf, orderϕ, orderη, k, vtk_output, verbose_steps = params
 
-    sea = build_regular_wave_state(p=p)
-    ω = sea.ω[1]
-    k = sea.k[1]
-    ψ = P.WaveSpec.AiryWaves.get_random_phases(sea)[1, 1]
+    # Fixed parameters
+    ## Geometry
+    L = 2.0 * π
+    H = 1.0
 
-    mρ = p.ρ_b * p.h_b / p.ρ_w
-    EIρ = mρ * ω^2 / k^4
+    ## Physics
+    g   = 9.81
+    ρ_w = 1.0e3
+    ρ_b = 1.0e2
+    h_b = 1.0e-2
+    η₀  = 0.01
+    t₀  = 0.0
 
-    η(x, t) = p.η0 * cos(k * x[1] - ω * t + ψ)
-    ϕ(x, t) = p.η0 * ω / k * (cosh(k * x[2]) / sinh(k * p.H)) * sin(k * x[1] - ω * t + ψ)
-    ∂tη(x, t) = p.η0 * ω * sin(k * x[1] - ω * t + ψ)
+    ## Derived quantities
+    ω  = sqrt(g * k * tanh(k * H))
+    d₀ = ρ_b * h_b / ρ_w          # normalised mass per unit length  (mᵨ)
+    Dᵨ = d₀ * ω^2 / k^4           # normalised flexural rigidity     (EIᵨ)
+
+    ## Exact wave fields — deterministic (ψ = 0)
+    η(x, t)    =  η₀ * cos(k * x[1] - ω * t)
+    ϕ(x, t)    =  η₀ * ω / k * cosh(k * x[2]) / sinh(k * H) * sin(k * x[1] - ω * t)
+    ∂tη(x, t)  =  η₀ * ω * sin(k * x[1] - ω * t)
+    ∂tϕ(x, t)  = -η₀ * ω^2 / k * cosh(k * x[2]) / sinh(k * H) * cos(k * x[1] - ω * t)
     ∂ttη(x, t) = -ω^2 * η(x, t)
-    ∂tϕ(x, t) = -p.η0 * ω^2 / k * (cosh(k * x[2]) / sinh(k * p.H)) * cos(k * x[1] - ω * t + ψ)
     ∂ttϕ(x, t) = -ω^2 * ϕ(x, t)
 
-    out = (; sea, ω, k, mρ, EIρ, η, ϕ, ∂tη, ∂ttη, ∂tϕ, ∂ttϕ)
-    _exact_wave_cache[cache_key] = out
-    return out
-end
-
-"""
-Build the time-domain problem and run the simulation.
-"""
-function build_time_problem(
-    n::Int,
-    order::Int;
-    p=params,
-    verbose_steps::Bool=false,
-    stage_label::String="time-domain",
-)
-    verbose_steps && println("[", stage_label, "] Building problem with n=", n, " order=", order)
-    verbose_steps && println("[", stage_label, "]   - Exact wave functions")
-    wv = exact_wave_functions(p=p)
-
-    verbose_steps && println("[", stage_label, "]   - Building domains and physics")
+    # Define fluid domain
+    println("Defining fluid domain")
     tank = HE.TankDomain(
-        L=p.L,
-        H=p.H,
-        nx=2 * n,
-        ny=n,
-        is_periodic=(true, false),
-        structure_domains=[
-            HE.StructureDomain(L=p.L, x₀=[0.0, p.H], domain_symbol=:Γs),
-        ],
+        L                 = L,
+        H                 = H,
+        nx                = 2 * n,
+        ny                = n,
+        is_periodic       = (true, false),
+        structure_domains = [HE.StructureDomain(L=L, x₀=[0.0, H], domain_symbol=:Γs)],
     )
 
-    beam = P.EulerBernoulliBeam(
-        L=p.L,
-        mᵨ=wv.mρ,
-        EIᵨ=wv.EIρ,
-        symbol=:w,
-        fe=PH.FESpaceConfig(order=order, vector_type=Vector{Float64}),
-        space_domain_symbol=:Γs,
-    )
-
+    # Define physics
+    # No sea_state → no inlet wave-generation BC (correct for periodic benchmark)
+    println("Defining physics")
     potential = P.PotentialFlow(
-        g=p.g,
-        sea_state=wv.sea,
-        fe=PH.FESpaceConfig(order=p.order_phi, vector_type=Vector{Float64}),
-        space_domain_symbol=:Ω,
+        g                   = g,
+        fe                  = PH.FESpaceConfig(order=orderϕ, vector_type=Vector{Float64}),
+        space_domain_symbol = :Ω,
+    )
+    beam = P.EulerBernoulliBeam(
+        L                   = L,
+        mᵨ                  = d₀,
+        EIᵨ                 = Dᵨ,
+        g                   = g,
+        symbol              = :w,
+        fe                  = PH.FESpaceConfig(order=orderη, vector_type=Vector{Float64},γ=1.0*orderη*(orderη+1)),
+        space_domain_symbol = :Γs,
     )
 
-    verbose_steps && println("[", stage_label, "]   - Building time config")
-    cfg = PH.TimeDomainConfig(t₀=0.0, tf=p.tf)
+    # Time configuration (ρ∞ = 1.0 → trapezoidal rule, γ = 0.5, β = 0.25)
+    println("Defining time configuration")
+    cfg  = PH.TimeDomainConfig(t₀=t₀, tf=tf)
     tcfg = PH.TimeConfig(
-        Δt=p.Δt,
-        t₀=0.0,
-        tf=p.tf,
-        ρ∞=1.0,
-        u0=[x -> wv.ϕ(x, 0.0), x -> wv.η(x, 0.0)],
-        u0t=[x -> wv.∂tϕ(x, 0.0), x -> wv.∂tη(x, 0.0)],
-        u0tt=[x -> wv.∂ttϕ(x, 0.0), x -> wv.∂ttη(x, 0.0)],
+        Δt   = dt,
+        t₀   = t₀,
+        tf   = tf,
+        ρ∞   = 1.0,
+        u0   = [x -> ϕ(x, t₀),    x -> η(x, t₀)],
+        u0t  = [x -> ∂tϕ(x, t₀),  x -> ∂tη(x, t₀)],
+        u0tt = [x -> ∂ttϕ(x, t₀), x -> ∂ttη(x, t₀)],
     )
 
-    verbose_steps && println("[", stage_label, "]   - Building problem")
+    # Assemble and solve
+    println("Assembling and solving")
     problem = S.build_problem(tank, P.PhysicsParameters[potential, beam], cfg; tconfig=tcfg)
+    result  = S.simulate(problem, tcfg)
 
-    verbose_steps && println("[", stage_label, "]   - Problem built, getting simulation")
-    result = S.simulate(problem, tcfg)
-
-    return problem, result, p.tf
-end
-
-"""
-Compute the L2 errors of the solution at the end of the simulation against the exact wave functions.
-"""
-function compute_errors(problem, result; p=params, kwargs...)
-    t_end = get(kwargs, :t_end, p.tf)
-    wv = exact_wave_functions(p=p)
     dom = S.get_integration_domains(problem)
-    dΓ = dom[:dΓη]
-    dΩ = dom[:dΩ]
+    dΓ  = dom[:dΓη]
+    dΩ  = dom[:dΩ]
 
-    uh_end = nothing
-    for (_, uh) in result.solution
-        uh_end = uh
+    # L² norm helpers
+    l2_Ω(u) = sqrt(abs(sum(∫(u * u)dΩ)))
+    l2_Γ(u) = sqrt(abs(sum(∫(u * u)dΓ)))
+
+    # Reference energy amplitudes from the exact solution
+    E_kin_f₀ = 0.25 * d₀ * ω^2 * η₀^2 * L
+    E_kin_s₀ = 0.25 * g  * η₀^2 * L
+    E_pot_f₀ = 0.25 * Dᵨ * k^4 * η₀^2 * L
+    E_ela_s₀ = 0.25 * g  * η₀^2 * L
+
+    t_global = Float64[]
+    e_ϕ      = Float64[]
+    e_η      = Float64[]
+    E_kin_f  = Float64[]
+    E_pot_f  = Float64[]
+    E_kin_s  = Float64[]
+    E_ela_s  = Float64[]
+
+    ηₙ = x -> η(x, t₀)
+    tₙ = t₀
+
+    if vtk_output == true
+        filename = "data/VTKOutput/5-2-1-spatial_convergence/"*name
+        pvd_Ω = createpvd(filename * "_O", append=false)
+        pvd_Γ = createpvd(filename * "_G", append=false)
     end
-    isnothing(uh_end) && error("Time-domain solution history is empty.")
 
-    ϕh = uh_end[result.fmap[:ϕ]]
-    w_h = uh_end[result.fmap[:w]]
+    for (t, uh) in result.solution
+        verbose_steps && println("t = ", t)
 
-    ew = w_h - (x -> wv.η(x, t_end))
-    eϕ = ϕh - (x -> wv.ϕ(x, t_end))
+        ϕh = uh[result.fmap[:ϕ]]
+        wh = uh[result.fmap[:w]]
 
-    l2_w = sqrt(abs(sum(∫(ew * conj(ew))dΓ)))
-    l2_ϕ = sqrt(abs(sum(∫(eϕ * conj(eϕ))dΩ)))
+        push!(e_ϕ, l2_Ω(ϕh - (x -> ϕ(x, t))))
+        push!(e_η, l2_Γ(wh - (x -> η(x, t))))
 
-    return l2_w, l2_ϕ
-end
+        dt_local = t - tₙ
+        ηₜ = dt_local > 0 ? (wh - ηₙ) / dt_local : (x -> 0.0)
 
-"""
-Run a single time-domain simulation case and compute errors.
-"""
-function run_case(n::Int, order::Int; p=params, verbose_steps::Bool=false, stage_label::String="run_case")
-    problem, result, t_end = build_time_problem(
-        n,
-        order;
-        p=p,
-        verbose_steps=verbose_steps,
-        stage_label=stage_label,
-    )
-    l2_w, l2_ϕ = compute_errors(problem, result; p=p, t_end=t_end)
+        push!(E_kin_f, 0.5 * sum(∫(∇(ϕh) ⋅ ∇(ϕh))dΩ))
+        push!(E_pot_f, 0.5 * g  * sum(∫(wh * wh)dΓ))
+        push!(E_kin_s, 0.5 * d₀ * sum(∫(ηₜ * ηₜ)dΓ))
+        push!(E_ela_s, 0.5 * Dᵨ * sum(∫(Δ(wh) * Δ(wh))dΓ))
+        push!(t_global, t)
 
-    return Dict(
-        :n => n,
-        :order => order,
-        :L2_error_w => l2_w,
-        :L2_error_phi => l2_ϕ,
-    )
-end
+        ηₙ = wh
+        tₙ = t
+    end
 
-"""
-Run a single-step warm-up solve at coarse resolution.
-
-The warm-up always uses `tf = Δt`, i.e., one single time step.
-"""
-function run_warmup_case(
-    ;
-    n::Int,
-    order::Int,
-    k::Real,
-    order_phi::Int,
-    Δt::Real,
-    verbose_steps::Bool=false,
-    stage_label::String="warmup",
-)
-    p_warm = merge(params, (
-        k=k,
-        order_phi=order_phi,
-        Δt=Δt,
-        tf=Δt,
-    ))
-
-    problem, result, t_end = build_time_problem(
-        n,
-        order;
-        p=p_warm,
-        verbose_steps=verbose_steps,
-        stage_label=stage_label,
-    )
-    l2_w, l2_ϕ = compute_errors(problem, result; p=p_warm, t_end=t_end)
-    return (; l2_w, l2_ϕ)
+    return e_ϕ, e_η, E_kin_f, E_pot_f, E_kin_s, E_ela_s, E_kin_f₀, E_kin_s₀, E_pot_f₀, E_ela_s₀, t_global
 end
 
 end # module ConvergenceTimeDomain
