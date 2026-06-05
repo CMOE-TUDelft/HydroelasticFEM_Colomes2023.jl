@@ -1,7 +1,7 @@
 name = "HydroElasticFEM_Colomes2023"
 uuid = "20d269e7-eb18-4f57-86b7-16c9d8975170"
-authors = ["Oriol Colomés"]
 version = "0.1.0"
+authors = ["Oriol Colomés"]
 
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
@@ -18,6 +18,7 @@ CairoMakie = "0.12, 0.15"
 DrWatson = "2"
 Gridap = "0.17, 0.20"
 GridapGmsh = "0.7"
+HydroElasticFEM = "0.1"
 julia = "1.10"
 
 [extras]
