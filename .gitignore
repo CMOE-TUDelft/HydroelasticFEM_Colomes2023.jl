@@ -7,3 +7,5 @@ plots/
 Manifest.toml
 *.vtu
 *.pvtu
+
+notes/
