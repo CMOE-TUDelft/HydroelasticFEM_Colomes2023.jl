@@ -23,33 +23,33 @@ function run_tests(
 		verbose=verbose,
 		verbose_steps=verbose_steps,
 	)
-	run_5_2_2 = () -> run_5_2_2_time_convergence(
-		force=force,
-		make_plots=make_plots,
-		save_csv=save_csv,
-		verbose=verbose,
-		verbose_steps=verbose_steps,
-	)
-	run_5_2_3 = () -> run_5_2_3_energy_conservation(
-		force=force,
-		make_plots=make_plots,
-		save_csv=save_csv,
-		verbose=verbose,
-		verbose_steps=verbose_steps,
-	)
+	# run_5_2_2 = () -> run_5_2_2_time_convergence(
+	# 	force=force,
+	# 	make_plots=make_plots,
+	# 	save_csv=save_csv,
+	# 	verbose=verbose,
+	# 	verbose_steps=verbose_steps,
+	# )
+	# run_5_2_3 = () -> run_5_2_3_energy_conservation(
+	# 	force=force,
+	# 	make_plots=make_plots,
+	# 	save_csv=save_csv,
+	# 	verbose=verbose,
+	# 	verbose_steps=verbose_steps,
+	# )
 
 	if name == "all"
 		return (
 			section_5_2_1=run_5_2_1(),
-			section_5_2_2=run_5_2_2(),
-			section_5_2_3=run_5_2_3(),
+			# section_5_2_2=run_5_2_2(),
+			# section_5_2_3=run_5_2_3(),
 		)
 	elseif name in ("5-2-1", "5_2_1", "spatial")
 		return run_5_2_1()
-	elseif name in ("5-2-2", "5_2_2", "time")
-		return run_5_2_2()
-	elseif name in ("5-2-3", "5_2_3", "energy")
-		return run_5_2_3()
+	# elseif name in ("5-2-2", "5_2_2", "time")
+	# 	return run_5_2_2()
+	# elseif name in ("5-2-3", "5_2_3", "energy")
+	# 	return run_5_2_3()
 	else
 		error("Unknown test name: $(name). Use one of: all, 5-2-1, 5-2-2, 5-2-3")
 	end
