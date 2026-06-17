@@ -6,11 +6,16 @@ module KhavakpashevaTimeDomain
 
 using Gridap
 using Parameters
+using WaveSpec
+using Gridap.CellData: get_cell_dof_values, get_cell_points
+using Gridap.FESpaces: get_fe_dof_basis
+using Gridap.Visualization
 
 import HydroElasticFEM as HE
 import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation as S
 import HydroElasticFEM.ParameterHandler as PH
+import HydroElasticFEM.Geometry as G
 
 export Khabakpasheva_time_params
 export run_khabakpasheva_time
@@ -19,6 +24,7 @@ export run_khabakpasheva_time
     name::String        = "KhabakpashevaTime"
     nx::Int             = 20
     ny::Int             = 5
+    nT::Int             = 1
     order::Int          = 4
     ξ::Float64          = 0.0
     vtk_output::Bool    = false
@@ -26,7 +32,7 @@ export run_khabakpasheva_time
 end
 
 function run_khabakpasheva_time(params::Khabakpasheva_time_params)
-    @unpack name, nx, ny, order, ξ, vtk_output, verbose_steps = params
+    @unpack name, nx, ny, nT, order, ξ, vtk_output, verbose_steps = params
 
     # Fixed parameters
     Lb = 12.5
@@ -56,7 +62,7 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
     ## Derived quantities
     λ = α * Lb
     k = 2π / λ
-    ω = sqrt(g * k * tanh(k * H))
+    @show  ω = sqrt(g * k * tanh(k * H))
     T = 2π / ω
     d₀ = mᵨ/ρ_w
     a₁ = EI₁/ρ_w
@@ -78,7 +84,11 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
     ∂tϕ(x, t)  = -η₀ * ω^2 / k * cosh(k * x[2]) / sinh(k * H) * cos(k * x[1] - ω * t)
     ∂ttη(x, t) = -ω^2 * η(x, t)
     ∂ttϕ(x, t) = -ω^2 * ϕ(x, t)
-    vin(x, t)  =  - η₀ * ω * cosh(k * x[2]) / sinh(k * H) * sin(k * x[1] - ω * t)
+    vin(x, t)  =  - η₀ * ω * cosh(k * x[2]) / sinh(k * H) * cos(k * x[1] - ω * t)
+    vzin(x, t) =  η₀ * ω * sinh(k * x[2]) / sinh(k * H) * sin(k * x[1] - ω * t)
+    vin(t) = x -> vin(x, t)
+    η(t) = x -> η(x, t)
+    vzin(t) = x -> vzin(x, t)
 
     ## Damping
     μ₀ = 2.5
@@ -86,22 +96,26 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
     μ₁ₒᵤₜ(x::VectorValue) = μ₀*(1.0 - cos(π/2*(x[1]-xdₒᵤₜ)/Ld))
     μ₂ᵢₙ(x) = μ₁ᵢₙ(x)*k
     μ₂ₒᵤₜ(x) = μ₁ₒᵤₜ(x)*k
-    ηd(t) = x -> μ₂ᵢₙ(x)*ηᵢₙ(x,t)
-    ∇ₙϕd(t) = x -> μ₁ᵢₙ(x)*vzᵢₙ(x,t)
+    # ηd(t) = x -> μ₂ᵢₙ(x)*η(x,t)
+    # ∇ₙϕd(t) = x -> μ₁ᵢₙ(x)*vzin(x,t)
 
     ## Time stepping
     t₀ = 0.0
     Δt = T/40
-    tf = 50*T#/λ_factor
+    tf = nT*T#/λ_factor
+    γₜ = 0.5
+    βₜ = 0.25
+    ∂uₜ_∂u = γₜ/(βₜ*Δt)
 
     ## Numerics constants
     γ = 1.0*order*(order-1)
     βₕ = 0.5
+    αₕ = ∂uₜ_∂u/g * (1-βₕ)/βₕ
 
     ## Vertical refinement
-    function map(x)
+    function map_y(x)
         if x[2] == H
-            return H
+            return VectorValue(x[1], H)
         end
         i = x[2] / (H/ny)
         return VectorValue(x[1], H-H/(2.5^i))
@@ -114,7 +128,7 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
         H                 = H,
         nx                = Int(ceil(nx/β)*ceil(LΩ/Lb)),
         ny                = ny,
-        map               = map,
+        map               = map_y,
         structure_domains = [HE.StructureDomain(L=Lb, x₀=[xb₀, H], domain_symbol=:Γs)],
         damping_zones     = [
             G.DampingZone(L = Ld, x₀ = [0.0, H], domain_symbol = :Γ_din),
@@ -132,18 +146,18 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
         ρw                  = ρ_w,
         g                   = g,
         boundary_conditions = [
-            P.RadiationBC(domain = :dΓin),
-            P.RadiationBC(domain = :dΓout),
+            # P.RadiationBC(domain = :dΓin),
+            # P.RadiationBC(domain = :dΓout),
             P.PrescribedInletPotentialBC(domain = :dΓin, forcing = vin, quantity = :traction),
             P.DampingZoneBC(
-                domain = :dΓ_din,
+                domain = :dΓd_1,
                 μ₁ = μ₁ᵢₙ,
                 μ₂ = μ₂ᵢₙ,
-                η_in = ηd,
-                vz_in = ∇ₙϕd,
+                η_in = η,
+                vz_in = vzin,
             ),
             P.DampingZoneBC(
-                domain = :dΓ_dout,
+                domain = :dΓd_2,
                 μ₁ = μ₁ₒᵤₜ,
                 μ₂ = μ₂ₒᵤₜ,
                 η_in = (x,t) -> 0.0,
@@ -167,7 +181,7 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
         mᵨ                  = d₀,
         EIᵨ                 = x -> a₁*(x[1]<xbⱼ) + a₂*(x[1]>=xbⱼ),
         g                   = g,
-        joints.             = [P.JointRotationalSpring(:dΛj_1, :n_Λ_j_1, kᵣ)],
+        joints              = [P.JointRotationalSpring(:dΛj_1, :n_Λ_j_1, kᵣ)],
         symbol              = :w,
         fe                  = PH.FESpaceConfig(order=order, vector_type=Vector{Float64},γ=γ),
         space_domain_symbol = :Γs,
@@ -181,18 +195,23 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
         t₀   = t₀,
         tf   = tf,
         ρ∞   = 1.0,
-        u0   = [x -> ϕ(x, t₀),    x -> η(x, t₀)],
-        u0t  = [x -> ∂tϕ(x, t₀),  x -> ∂tη(x, t₀)],
-        u0tt = [x -> ∂ttϕ(x, t₀), x -> ∂ttη(x, t₀)],
+        αₕ   = αₕ,
+        # u0   = [x -> ϕ(x, t₀),    x -> η(x, t₀)],
+        # u0t  = [x -> ∂tϕ(x, t₀),  x -> ∂tη(x, t₀)],
+        # u0tt = [x -> ∂ttϕ(x, t₀), x -> ∂ttη(x, t₀)],
+        u0   = [x -> 0.0,    x -> 0.0],
+        u0t  = [x -> 0.0,  x -> 0.0],
+        u0tt = [x -> 0.0, x -> 0.0],
     )
 
     # Assemble and solve
     println("Assembling and solving")
     problem = S.build_problem(tank, P.PhysicsParameters[potential, free_surface, beam], cfg; tconfig=tcfg)
+    # problem = S.build_problem(tank, P.PhysicsParameters[potential], cfg; tconfig=tcfg)
     result  = S.simulate(problem, tcfg)
 
     # Postprocess
-    V_Γη = S.get_fe_space(problem, :Γs)
+    V_Γη = S.get_trial_fe_space(problem)[3]
     xy_cp = get_cell_points(get_fe_dof_basis(V_Γη)).cell_phys_point
     x_cp = [[xy_ij[1] for xy_ij in xy_i] for xy_i in xy_cp]
     p = sortperm(x_cp[1])
@@ -222,16 +241,16 @@ function run_khabakpasheva_time(params::Khabakpasheva_time_params)
         push!(ts, t)
 
         if vtk_output == true
-            pvd_Ω[t] = createvtk(trians[:Ω],filename * "_O_solution" * "_$tₙ.vtu",cellfields = ["phi" => ϕₕ])#,nsubcells=10)
-            pvd_Γκ[t] = createvtk(trians[:Γκ],filename * "_Gk_solution" * "_$tₙ.vtu",cellfields = ["kappa" => κₕ],nsubcells=10)
-            pvd_Γη[t] = createvtk(trians[:Γs],filename * "_Ge_solution" * "_$tₙ.vtu",cellfields = ["eta" => ηₕ],nsubcells=10)
+            pvd_Ω[t] = createvtk(trians[:Ω],filename * "_O_solution" * "_$t.vtu",cellfields = ["phi" => ϕₕ])#,nsubcells=10)
+            pvd_Γκ[t] = createvtk(trians[:Γκ],filename * "_Gk_solution" * "_$t.vtu",cellfields = ["kappa" => κₕ],nsubcells=10)
+            pvd_Γη[t] = createvtk(trians[:Γs],filename * "_Ge_solution" * "_$t.vtu",cellfields = ["eta" => ηₕ],nsubcells=10)
         end
     end
 
     if vtk_output == true
-        vtk_save(pvd_Ω)
-        vtk_save(pvd_Γκ)
-        vtk_save(pvd_Γη)
+        savepvd(pvd_Ω)
+        savepvd(pvd_Γκ)
+        savepvd(pvd_Γη)
     end
 
     return ts, xs, ηxps_t
