@@ -73,7 +73,8 @@ function run_5_2_1_spatial_convergence(
     make_plots=true,
     save_csv=true,
     verbose=true,
-    verbose_steps=false,      
+    verbose_steps=false,    
+    vtk_output=false,  
 )
     
     function run_5_2_1(case::PeriodicBeam_params)
@@ -125,6 +126,7 @@ function run_5_2_1_spatial_convergence(
                 n=nelem, dt=Δt_sw, tf=tf_sw, k=k_sw,
                 orderϕ=order, orderη=order,
                 verbose_steps=verbose_steps,
+                vtk_output=vtk_output,
             )
             verbose && println("[5-2-1] Solving: n=$(nelem), order=$(order)")
             data, _ = produce_or_load(path, case, run_5_2_1; force=force, digits=8)
