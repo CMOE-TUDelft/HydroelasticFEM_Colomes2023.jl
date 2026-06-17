@@ -73,7 +73,9 @@ function run_5_2_1_spatial_convergence(
     make_plots=true,
     save_csv=true,
     verbose=true,
-    verbose_steps=false,      
+    verbose_steps=false,    
+    vtk_output=false,
+    test_suit=false, # If true, only run the warm-up case for testing purposes  
 )
     
     function run_5_2_1(case::PeriodicBeam_params)
@@ -110,6 +112,10 @@ function run_5_2_1_spatial_convergence(
     verbose && println("[5-2-1] Warm-up: n=$(n), order=$(order), k=$(k), Δt=$(Δt)")
     produce_or_load(path, case, run_5_2_1; force=force, digits=8)
 
+    if test_suit
+        return nothing
+    end
+
     # ── Spatial convergence: k=15, very small Δt, varying n and order ────────
     Δt_sw = 1.0e-6
     tf_sw = 1.0e-4
@@ -125,6 +131,7 @@ function run_5_2_1_spatial_convergence(
                 n=nelem, dt=Δt_sw, tf=tf_sw, k=k_sw,
                 orderϕ=order, orderη=order,
                 verbose_steps=verbose_steps,
+                vtk_output=vtk_output,
             )
             verbose && println("[5-2-1] Solving: n=$(nelem), order=$(order)")
             data, _ = produce_or_load(path, case, run_5_2_1; force=force, digits=8)

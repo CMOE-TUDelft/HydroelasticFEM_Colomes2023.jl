@@ -69,6 +69,8 @@ function run_5_2_2_time_convergence(
     save_csv=true,
     verbose=true,
     verbose_steps=false,      
+    vtk_output=false,
+    test_suit=false, # If true, only run the warm-up case for testing purposes
 )
     # ── Define per-case execution function (mirrors MonolithicFEMVLFS) ───────
     function run_5_2_2(case::PeriodicBeam_params)
@@ -105,6 +107,10 @@ function run_5_2_2_time_convergence(
     verbose && println("[5-2-2] Warm-up: n=$(n), order=$(order), k=$(k), Δt=$(Δt)")
     produce_or_load(path, case, run_5_2_2; force=force, digits=8)
 
+    if test_suit
+        return nothing
+    end
+
     # ── Time convergence: k=1, small h high order, varying Δt ────────
     Δts=[1.0 * 2.0^(-i) for i in 0:4]
     n=64
@@ -120,6 +126,8 @@ function run_5_2_2_time_convergence(
           name="timeConvergence",
           n=n, dt=Δt, tf=tf, k=k,
           orderϕ=order, orderη=order,
+          verbose_steps=verbose_steps,
+          vtk_output=vtk_output,
       )
       verbose && println("[5-2-2] Solving: n=$(n), order=$(order), Δt=$(Δt)")
       data, _ = produce_or_load(path, case, run_5_2_2; force=force, digits=8)
