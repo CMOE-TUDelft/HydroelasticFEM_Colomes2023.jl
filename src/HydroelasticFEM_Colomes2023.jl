@@ -32,6 +32,7 @@ function run_tests(
 	verbose::Bool=false,
 	verbose_steps::Bool=false,
 	vtk_output::Bool=false,
+	test_suit::Bool=false, # If true, only run the warm-up cases for testing purposes
 )
 	run_5_2_1 = () -> run_5_2_1_spatial_convergence(
 		force=force,
@@ -40,6 +41,7 @@ function run_tests(
 		verbose=verbose,
 		verbose_steps=verbose_steps,
 		vtk_output=vtk_output,
+		test_suit=test_suit,
 	)
 	run_5_2_2 = () -> run_5_2_2_time_convergence(
 		force=force,
@@ -48,6 +50,7 @@ function run_tests(
 		verbose=verbose,
 		verbose_steps=verbose_steps,
 		vtk_output=vtk_output,
+		test_suit=test_suit,
 	)
 	run_5_2_3 = () -> run_5_2_3_energy_conservation(
 		force=force,
@@ -56,6 +59,7 @@ function run_tests(
 		verbose=verbose,
 		verbose_steps=verbose_steps,
 		vtk_output=vtk_output,
+		test_suit=test_suit,
 	)
 	run_5_3_1 = () -> run_5_3_1_khabakpasheva_time(
 		force=force,
@@ -64,6 +68,7 @@ function run_tests(
 		verbose=verbose,
 		verbose_steps=verbose_steps,
 		vtk_output=vtk_output,
+		test_suit=test_suit,
 	)
 
 	if name == "all"

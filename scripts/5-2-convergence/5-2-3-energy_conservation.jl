@@ -78,6 +78,7 @@ function run_5_2_3_energy_conservation(
     verbose=true,
     verbose_steps=false,
     vtk_output=false,
+    test_suit=false, # If true, only run the warm-up case for testing purposes
 )
 
   function run_5_2_3(case::PeriodicBeam_params)
@@ -118,6 +119,10 @@ function run_5_2_3_energy_conservation(
   case = PeriodicBeam_params(name="Warm-up", n=n, dt=Δt, tf=T, k=k, orderϕ=order, orderη=order)
   verbose && println("[5-2-3] Warm-up: n=$(n), order=$(order), k=$(k), Δt=$(Δt)")
   produce_or_load(path, case, run_5_2_3; force=force, digits=8)
+
+  if test_suit
+      return nothing
+  end
 
   # ── Energy conservation test: k=15, small Δt, moderate n and order ────────
   n=32

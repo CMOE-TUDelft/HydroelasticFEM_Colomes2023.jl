@@ -67,6 +67,7 @@ function run_5_3_1_khabakpasheva_time(
     verbose=true,
     verbose_steps=false, 
     vtk_output=false,     
+    test_suit=false, # If true, only run the warm-up case for testing purposes
 )
     # ── Define per-case execution function (mirrors MonolithicFEMVLFS) ───────
     function run_5_3_1(case::Khabakpasheva_time_params)
@@ -101,6 +102,10 @@ function run_5_3_1_khabakpasheva_time(
     )
     verbose && println("[5-3-1] Warm-up: nx=$(nx), ny=$(ny), order=$(order)")
     produce_or_load(path, case, run_5_3_1; force=true, digits=8)
+
+    if test_suit
+        return nothing
+    end
 
     # ── Time domain solution with hinge ξ=0 ────────
     case = Khabakpasheva_time_params(

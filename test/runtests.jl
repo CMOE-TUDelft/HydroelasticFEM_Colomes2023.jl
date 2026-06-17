@@ -13,22 +13,22 @@ include("../src/HydroElasticFEM_Colomes2023.jl")
     mktempdir() do tmp
         cd(tmp) do
             @testset "5-2-1 warm-up scale" begin
-                HydroElasticFEM_Colomes2023.run_5_2_1_spatial_convergence()
+                HydroElasticFEM_Colomes2023.run_5_2_1_spatial_convergence(test_suit=true)
                 @test true
             end
 
             @testset "5-2-2 warm-up scale" begin
-                HydroElasticFEM_Colomes2023.run_5_2_2_time_convergence()
+                HydroElasticFEM_Colomes2023.run_5_2_2_time_convergence(test_suit=true)
                 @test true
             end
 
             @testset "5-2-3 warm-up scale" begin
-                HydroElasticFEM_Colomes2023.run_5_2_3_energy_conservation()
+                HydroElasticFEM_Colomes2023.run_5_2_3_energy_conservation(test_suit=true)
                 @test true
             end
 
             @testset "5-3-1 warm-up scale" begin
-                HydroElasticFEM_Colomes2023.run_5_3_1_khabakpasheva_time()
+                HydroElasticFEM_Colomes2023.run_5_3_1_khabakpasheva_time(test_suit=true)
                 @test true
             end
         end
