@@ -6,7 +6,7 @@ No value assertions are performed.
 """
 
 using Test
-include("../src/HydroElasticFEM_Colomes2023.jl")
+include(joinpath(@__DIR__,"../src/HydroElasticFEM_Colomes2023.jl"))
 
 @testset "5.2 Script Smoke Tests (No-Failure)" begin
 
